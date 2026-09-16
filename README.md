@@ -1,32 +1,55 @@
-# React + TypeScript + Vite
+# Booking net calculator
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A single-screen web app that answers one question: given a nightly rate on
+Booking.com or Airbnb, how much money is actually kept — or lost — in a
+month, after platform commission, tax, per-stay costs, and recurring monthly
+costs. Every figure recalculates as you type; there is no calculate button.
+The app also prints the full trail of the calculation, line by line, so the
+final number can be checked rather than trusted.
 
-Currently, two official plugins are available:
+## Running it
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```
+pnpm install
+pnpm dev      # start the dev server
+pnpm test     # run the test suite
+pnpm build    # type-check and build for production
+pnpm lint     # oxlint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Inputs
+
+| Field | Unit | Default |
+|---|---|---|
+| Nightly rate | € | *(empty)* |
+| Unfilled days this month | nights | *(empty)* |
+| Number of stays | count | *(empty)* |
+| Platform commission | % | `15` |
+| Tax rate | % | `19` |
+| Fixed cost per stay | € | `75` |
+| Monthly fixed costs | € | *(empty)* |
+
+A month is always treated as 30 days (`DAYS_IN_MONTH` in `src/calc.ts`); there
+is no calendar logic.
+
+## Calculation
+
+The tax base is gross income minus commission, and nothing else — per-stay
+and monthly costs are paid out of already-taxed money and never reduce tax.
+Net kept is gross income minus total costs (commission + tax + per-stay costs
++ monthly fixed costs). Percentages are not clamped to 100, and a negative net
+is preserved and displayed rather than clamped to zero.
+
+## Decimal separators
+
+Both `.` and `,` are accepted as the decimal separator. What a lone separator
+means depends on the field: for money and counts, a lone separator followed
+by exactly three digits is grouping (`2,400` is 2400) and anything else is a
+decimal point (`33,33` is 33.33); for percentages, a lone separator is always
+a decimal point, so `19.375` is a 19.375% rate rather than 19375%. With two or
+more separators, all but the last are grouping in both cases.
+
+## Persistence
+
+Input values are saved to `localStorage` under the key
+`booking-calculator:inputs:v1` and restored on reload.

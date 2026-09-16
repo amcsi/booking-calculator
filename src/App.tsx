@@ -1,4 +1,4 @@
-import { calculate, type Inputs } from './calc'
+import { calculate, DAYS_IN_MONTH, type Inputs } from './calc'
 import { fillDetail, formatAmount, formatEuro } from './format'
 import { NumberField } from './NumberField'
 import { usePersistedState } from './usePersistedState'
@@ -38,12 +38,12 @@ export default function App() {
         </button>
       </section>
 
-      <section className="card">
+      <section className="card" aria-live="polite">
         <h2>Result</h2>
         <p className={positive ? 'hero positive' : 'hero negative'}>
           {formatEuro(result.net)}
         </p>
-        <p className="hero-caption">net kept in a 30-day month</p>
+        <p className="hero-caption">net kept in a {DAYS_IN_MONTH}-day month</p>
         <p className="hero-caption">
           {result.netPerFilledNight === null
             ? '— per filled night'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculate, parse, type Inputs } from './calc'
+import { calculate, parse, type Inputs, type Line } from './calc'
 
 const base: Inputs = {
   nightlyRate: '100',
@@ -46,14 +46,16 @@ describe('parse', () => {
     expect(parse('33.5')).toBe(33.5)
   })
 
-  it('treats a lone separator as a decimal point', () => {
-    expect(parse('2,400')).toBe(2.4)
-    expect(parse('2.400')).toBe(2.4)
+  it('reads a lone separator before three digits as grouping, for amounts', () => {
+    expect(parse('2,400')).toBe(2400)
+    expect(parse('2.400')).toBe(2400)
+    expect(parse('1,200')).toBe(1200)
   })
 
-  it('keeps three decimal places, as percentages need', () => {
-    expect(parse('19.375')).toBe(19.375)
-    expect(parse('8,375')).toBe(8.375)
+  it('reads a lone separator as a decimal point for rates', () => {
+    expect(parse('19.375', 'rate')).toBe(19.375)
+    expect(parse('8,375', 'rate')).toBe(8.375)
+    expect(parse('2,400', 'rate')).toBe(2.4)
   })
 
   it('reads all but the last of several separators as grouping', () => {
@@ -195,5 +197,43 @@ describe('calculate', () => {
     expect(amountOf('tax')).toBe(r.tax)
     expect(amountOf('perStayCosts')).toBe(r.perStayCosts)
     expect(amountOf('monthlyFixedCosts')).toBe(r.monthlyFixedCosts)
+  })
+
+  it('reads percentage fields at full precision', () => {
+    const r = calculate({ ...base, taxPct: '19.375' })
+    expect(r.tax).toBeCloseTo(2040 * 0.19375, 10)
+  })
+
+  it('reads money fields with grouping', () => {
+    const r = calculate({ ...base, monthlyFixedCosts: '1,200' })
+    expect(r.monthlyFixedCosts).toBe(1200)
+  })
+
+  it('wires each cost line amount to the figure it reports', () => {
+    const r = calculate(base)
+    const amountOf = (id: string) =>
+      r.costLines.find((line) => line.id === id)?.amount.value
+    expect(amountOf('commission')).toBe(r.commission)
+    expect(amountOf('tax')).toBe(r.tax)
+    expect(amountOf('perStay')).toBe(r.perStayCosts)
+    expect(amountOf('monthly')).toBe(r.monthlyFixedCosts)
+  })
+
+  it('orders the operands each line interpolates', () => {
+    const r = calculate(base)
+    const operandsOf = (lines: Line[], id: string) => {
+      const line = lines.find((l) => l.id === id)
+      if (!line) throw new Error(`no line with id ${id}`)
+      return line.operands.map((operand) => operand.value)
+    }
+    expect(operandsOf(r.trail, 'filledNights')).toEqual([30, 6])
+    expect(operandsOf(r.trail, 'grossIncome')).toEqual([100, 24])
+    expect(operandsOf(r.trail, 'commission')).toEqual([2400, 15])
+    expect(operandsOf(r.trail, 'taxableBase')).toEqual([2400, 360])
+    expect(operandsOf(r.trail, 'tax')).toEqual([2040, 19])
+    expect(operandsOf(r.trail, 'perStayCosts')).toEqual([8, 75])
+    expect(operandsOf(r.costLines, 'commission')).toEqual([15])
+    expect(operandsOf(r.costLines, 'tax')).toEqual([19, 2040])
+    expect(operandsOf(r.costLines, 'perStay')).toEqual([8, 75])
   })
 })

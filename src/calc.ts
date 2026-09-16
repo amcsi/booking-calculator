@@ -43,14 +43,20 @@ export interface Result {
 
 /**
  * Reads a typed number. Both "." and "," are accepted as the decimal
- * separator: a lone separator is ALWAYS a decimal point, so "33,33" and
- * "19.375" both read as written. With two or more separators, all but the
- * last are grouping and the last is a decimal point only when one or two
- * digits follow it, so "1.234,56" and "1,234.56" are both 1234.56 and
- * "1,234,567" is 1234567.
+ * separator; what a lone separator means depends on the field.
+ *
+ * In 'amount' mode (money and counts) a lone separator followed by exactly
+ * three digits is grouping, so "2,400" is 2400, while "33,33" is 33.33.
+ * In 'rate' mode (percentages) a lone separator is always a decimal point,
+ * so "19.375" is 19.375 rather than a 19375% tax.
+ *
+ * With two or more separators, all but the last are grouping in both modes
+ * and the last is a decimal point only when one or two digits follow, so
+ * "1.234,56" and "1,234.56" are both 1234.56 and "1,234,567" is 1234567.
+ *
  * Blank, unparseable, negative and negative-zero input all read as 0.
  */
-export function parse(raw: string): number {
+export function parse(raw: string, mode: 'amount' | 'rate' = 'amount'): number {
   const cleaned = raw.replace(/\s/g, '')
   const lastSeparator = Math.max(cleaned.lastIndexOf('.'), cleaned.lastIndexOf(','))
   const separatorCount = (cleaned.match(/[.,]/g) ?? []).length
@@ -60,7 +66,10 @@ export function parse(raw: string): number {
     normalised = cleaned
   } else {
     const tail = cleaned.slice(lastSeparator + 1)
-    const isDecimalPoint = separatorCount === 1 || /^\d{1,2}$/.test(tail)
+    const isDecimalPoint =
+      separatorCount === 1
+        ? mode === 'rate' || !/^\d{3}$/.test(tail)
+        : /^\d{1,2}$/.test(tail)
     const head = cleaned.slice(0, lastSeparator).replace(/[.,]/g, '')
     normalised = isDecimalPoint ? `${head}.${tail}` : head + tail
   }
@@ -78,8 +87,8 @@ export function calculate(inputs: Inputs): Result {
   const nightlyRate = parse(inputs.nightlyRate)
   const unfilledDays = parse(inputs.unfilledDays)
   const stays = parse(inputs.stays)
-  const commissionPct = parse(inputs.commissionPct)
-  const taxPct = parse(inputs.taxPct)
+  const commissionPct = parse(inputs.commissionPct, 'rate')
+  const taxPct = parse(inputs.taxPct, 'rate')
   const fixedCostPerStay = parse(inputs.fixedCostPerStay)
   const monthlyFixedCosts = parse(inputs.monthlyFixedCosts)
 

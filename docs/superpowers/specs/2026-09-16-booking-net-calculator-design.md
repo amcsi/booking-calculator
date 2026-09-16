@@ -70,6 +70,12 @@ treated as 30 days; no calendar logic exists.
   visibly wrong answer beats silently rewriting what the user typed.
 - **Negative results are preserved.** A net below zero is the app answering the
   "or lose" half of its question.
+- **Both `.` and `,` are accepted as the decimal separator**, and what a lone
+  separator means depends on the field. For money and counts, a lone separator
+  followed by exactly three digits is grouping (`2,400` is 2400) and anything
+  else is a decimal point (`33,33` is 33.33). For percentages, a lone separator
+  is always a decimal point, so `19.375` is a 19.375% rate rather than 19375%.
+  With two or more separators, all but the last are grouping in both cases.
 
 ### Worked example
 

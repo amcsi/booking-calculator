@@ -20,7 +20,7 @@
 - Net is computed as the single expression `gross − totalCosts`, not as a running chain.
 - Arithmetic runs unrounded end to end; rounding happens only at display, to two decimals.
 - Percentages have **no upper clamp**. All parsed values have a **lower clamp of 0**.
-- `parse()` accepts `.` and `,` interchangeably as the decimal separator, and treats a separator followed by anything other than one or two digits as a thousands separator.
+- `parse()` accepts `.` and `,` interchangeably as the decimal separator, and treats a separator followed by anything other than one or two digits as a thousands separator. **Superseded:** this single-mode rule broke money fields (`"2,400"` parsed as `2.4`). The shipped rule is the two-mode `parse(raw, mode)` recorded in the spec's "Rules this encodes" section — kept here only as the historical record of what was originally planned.
 - Negative net results are preserved and displayed, never clamped.
 - `src/calc.ts` imports nothing — not React, not `src/format.ts`.
 - Tests assert on raw numbers (`652.4`), never on formatted strings.
@@ -347,6 +347,14 @@ pnpm test
 Expected: FAIL — `Failed to resolve import "./calc"`.
 
 - [ ] **Step 3: Write the implementation**
+
+> **Superseded:** the `parse()` shown below uses the single-mode rule
+> (a lone separator is a thousands separator only when followed by other than
+> one or two digits). That rule breaks money fields — `parse('2,400')` reads
+> as `2.4`. The shipped rule is the two-mode `parse(raw, mode)` recorded in
+> the spec's "Rules this encodes" section. The code block below is kept only
+> as the historical record of what was originally planned; do not implement
+> it as written.
 
 Create `src/calc.ts`:
 
