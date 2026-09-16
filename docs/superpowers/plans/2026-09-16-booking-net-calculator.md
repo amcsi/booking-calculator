@@ -20,6 +20,7 @@
 - Net is computed as the single expression `gross − totalCosts`, not as a running chain.
 - Arithmetic runs unrounded end to end; rounding happens only at display, to two decimals.
 - Percentages have **no upper clamp**. All parsed values have a **lower clamp of 0**.
+- `parse()` accepts `.` and `,` interchangeably as the decimal separator, and treats a separator followed by anything other than one or two digits as a thousands separator.
 - Negative net results are preserved and displayed, never clamped.
 - `src/calc.ts` imports nothing — not React, not `src/format.ts`.
 - Tests assert on raw numbers (`652.4`), never on formatted strings.
@@ -47,7 +48,7 @@
 Both are flagged for the reviewer to accept or reject at Task 3 and Task 2 respectively:
 
 1. **`restoreInputs()` is extracted as a pure function and tested.** The spec says tests cover "the pure calc module only". Restoring a corrupt or outdated stored blob is the other genuinely fragile piece of logic, and testing it needs no new dependency and no DOM. The hook stays untested.
-2. **`parse()` accepts a comma as decimal separator.** `"33,33"` parses as `33.33`. The spec does not mention this; a European keyboard makes it likely, and without it a typed comma silently reads as zero.
+2. **`parse()` accepts both `.` and `,` as the decimal separator** — approved by the user after the spec was written. A separator is read as a decimal point only when one or two digits follow it, and as a thousands separator otherwise, so `"2,400"` is `2400` rather than `2.4`. Without that rule a plain comma-to-period swap turns €2,400 into €2.40 silently.
 
 ---
 
@@ -207,6 +208,29 @@ describe('parse', () => {
 
   it('accepts a comma as the decimal separator', () => {
     expect(parse('33,33')).toBe(33.33)
+  })
+
+  it('accepts a period as the decimal separator', () => {
+    expect(parse('33.5')).toBe(33.5)
+  })
+
+  it('reads a separator with three trailing digits as a thousands separator', () => {
+    expect(parse('2,400')).toBe(2400)
+    expect(parse('2.400')).toBe(2400)
+  })
+
+  it('handles both thousands and decimal separators together', () => {
+    expect(parse('1.234,56')).toBe(1234.56)
+    expect(parse('1,234.56')).toBe(1234.56)
+  })
+
+  it('tolerates a trailing separator mid-typing', () => {
+    expect(parse('12.')).toBe(12)
+    expect(parse('12,')).toBe(12)
+  })
+
+  it('ignores whitespace', () => {
+    expect(parse(' 75 ')).toBe(75)
   })
 })
 
@@ -370,8 +394,29 @@ export interface Result {
   costLines: Line[]
 }
 
+/**
+ * Reads a typed number. Both "." and "," count as the decimal separator, but
+ * only when one or two digits follow; any other separator is a thousands
+ * separator. So "33,33" is 33.33 while "2,400" is 2400, and a plain
+ * comma-to-period swap cannot silently turn 2,400 into 2.4.
+ * Blank, unparseable and negative input all read as 0.
+ */
 export function parse(raw: string): number {
-  const n = Number.parseFloat(raw.replace(',', '.'))
+  const cleaned = raw.replace(/\s/g, '')
+  const lastSeparator = Math.max(cleaned.lastIndexOf('.'), cleaned.lastIndexOf(','))
+
+  let normalised: string
+  if (lastSeparator === -1) {
+    normalised = cleaned
+  } else {
+    const trailingDigits = cleaned.length - lastSeparator - 1
+    const isDecimalPoint = trailingDigits === 1 || trailingDigits === 2
+    const head = cleaned.slice(0, lastSeparator).replace(/[.,]/g, '')
+    const tail = cleaned.slice(lastSeparator + 1)
+    normalised = isDecimalPoint ? `${head}.${tail}` : head + tail
+  }
+
+  const n = Number.parseFloat(normalised)
   if (!Number.isFinite(n) || n < 0) return 0
   return n
 }
@@ -508,7 +553,7 @@ export function calculate(inputs: Inputs): Result {
 pnpm test
 ```
 
-Expected: PASS — 16 tests across two describe blocks.
+Expected: PASS — 21 tests across two describe blocks (10 for `parse`, 11 for `calculate`).
 
 - [ ] **Step 5: Commit**
 
@@ -517,9 +562,9 @@ git add src/calc.ts src/calc.test.ts
 git commit -m "Add the pure booking net calculation module" -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 6: Flag the comma addition in the task summary**
+- [ ] **Step 6: Note the separator handling in the task summary**
 
-Report to the reviewer that `parse()` accepts `"33,33"` as `33.33`, that this is not in the spec, and that removing it means dropping the `.replace(',', '.')` call and its test.
+Record that `parse()` accepts both separators per the user's decision, and that the thousands-separator rule is what keeps `"2,400"` from reading as `2.4`.
 
 ---
 
