@@ -1,11 +1,11 @@
-import { calculate, DAYS_IN_MONTH, type Inputs } from './calc'
+import { calculate, type Inputs } from './calc'
 import { fillDetail, formatAmount, formatEuro } from './format'
 import { NumberField } from './NumberField'
 import { usePersistedState } from './usePersistedState'
 
 const FIELDS: { field: keyof Inputs; label: string; unit: string }[] = [
   { field: 'nightlyRate', label: 'Nightly rate', unit: '€' },
-  { field: 'unfilledDays', label: 'Unfilled days this month', unit: 'nights' },
+  { field: 'filledNights', label: 'Number of nights booked in month', unit: 'nights' },
   { field: 'stays', label: 'Number of stays', unit: '×' },
   { field: 'commissionPct', label: 'Platform commission', unit: '%' },
   { field: 'taxPct', label: 'Tax rate', unit: '%' },
@@ -43,7 +43,7 @@ export default function App() {
         <p className={positive ? 'hero positive' : 'hero negative'}>
           {formatEuro(result.net)}
         </p>
-        <p className="hero-caption">net kept in a {DAYS_IN_MONTH}-day month</p>
+        <p className="hero-caption">net kept this month</p>
         <p className="hero-caption">
           {result.netPerFilledNight === null
             ? '— per filled night'

@@ -21,6 +21,7 @@
 - Arithmetic runs unrounded end to end; rounding happens only at display, to two decimals.
 - Percentages have **no upper clamp**. All parsed values have a **lower clamp of 0**.
 - `parse()` accepts `.` and `,` interchangeably as the decimal separator, and treats a separator followed by anything other than one or two digits as a thousands separator. **Superseded:** this single-mode rule broke money fields (`"2,400"` parsed as `2.4`). The shipped rule is the two-mode `parse(raw, mode)` recorded in the spec's "Rules this encodes" section — kept here only as the historical record of what was originally planned.
+- The plan below asks for an `unfilledDays` input field, with `filledNights` derived as `DAYS_IN_MONTH − unfilledDays`. **Superseded:** the field was later replaced with `filledNights` as a direct input; there is no "30-day month" concept anywhere in the shipped app. See the spec's Calculation model and State and persistence sections — the latter also records the localStorage migration for data saved under the old field.
 - Negative net results are preserved and displayed, never clamped.
 - `src/calc.ts` imports nothing — not React, not `src/format.ts`.
 - Tests assert on raw numbers (`652.4`), never on formatted strings.
@@ -142,6 +143,15 @@ git commit -m "Scaffold the Vite React TypeScript project" -m "Co-Authored-By: C
 ---
 
 ### Task 2: The pure calculation module
+
+> **Superseded (follow-up change):** this task's brief and code below use
+> an `unfilledDays` input with `filledNights` derived as
+> `DAYS_IN_MONTH − unfilledDays`, clamped to 0–30. That field was later
+> replaced with `filledNights` as a direct input — there is no derivation
+> step and no "30-day month" concept in the shipped app. See the spec's
+> Calculation model section for the current shape. Kept here only as the
+> historical record of what was originally planned; do not implement it as
+> written.
 
 **Files:**
 - Create: `src/calc.ts`
@@ -578,6 +588,13 @@ Record that `parse()` accepts both separators per the user's decision, and that 
 
 ### Task 3: Persisted input state
 
+> **Superseded (follow-up change):** this task's `DEFAULTS` and tests below
+> use an `unfilledDays` field. It was later renamed `filledNights` and
+> became a direct input (see Task 2's note). The shipped `restoreInputs`
+> also migrates a stored `unfilledDays` value into `filledNights`, which is
+> not reflected below. Kept only as the historical record of what was
+> originally planned.
+
 **Files:**
 - Create: `src/usePersistedState.ts`
 - Test: `src/usePersistedState.test.ts`
@@ -866,6 +883,13 @@ git commit -m "Add euro formatting and the labelled number field" -m "Co-Authore
 ---
 
 ### Task 5: The screen
+
+> **Superseded (follow-up change):** this task's `App.tsx` below labels a
+> field "Unfilled days this month" and captions the hero "net kept in a
+> 30-day month". Both were later changed — the field asks directly for
+> "Number of nights booked in month", and the 30-day framing was dropped
+> from the UI entirely. Kept only as the historical record of what was
+> originally planned.
 
 **Files:**
 - Create: `src/App.tsx` (replacing the template's), `src/index.css` (replacing the template's)

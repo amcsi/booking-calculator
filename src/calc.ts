@@ -1,5 +1,3 @@
-export const DAYS_IN_MONTH = 30
-
 export type Unit = 'euro' | 'plain' | 'percent'
 
 export interface Amount {
@@ -18,7 +16,7 @@ export interface Line {
 
 export interface Inputs {
   nightlyRate: string
-  unfilledDays: string
+  filledNights: string
   stays: string
   commissionPct: string
   taxPct: string
@@ -85,17 +83,13 @@ const percent = (value: number): Amount => ({ value, unit: 'percent' })
 
 export function calculate(inputs: Inputs): Result {
   const nightlyRate = parse(inputs.nightlyRate)
-  const unfilledDays = parse(inputs.unfilledDays)
+  const filledNights = parse(inputs.filledNights)
   const stays = parse(inputs.stays)
   const commissionPct = parse(inputs.commissionPct, 'rate')
   const taxPct = parse(inputs.taxPct, 'rate')
   const fixedCostPerStay = parse(inputs.fixedCostPerStay)
   const monthlyFixedCosts = parse(inputs.monthlyFixedCosts)
 
-  const filledNights = Math.min(
-    DAYS_IN_MONTH,
-    Math.max(0, DAYS_IN_MONTH - unfilledDays),
-  )
   const grossIncome = nightlyRate * filledNights
   const commission = grossIncome * (commissionPct / 100)
   const taxableBase = grossIncome - commission
@@ -106,13 +100,6 @@ export function calculate(inputs: Inputs): Result {
   const netPerFilledNight = filledNights === 0 ? null : net / filledNights
 
   const trail: Line[] = [
-    {
-      id: 'filledNights',
-      label: 'Filled nights',
-      detail: '{0} days in the month − {1} unfilled',
-      operands: [plain(DAYS_IN_MONTH), plain(unfilledDays)],
-      amount: plain(filledNights),
-    },
     {
       id: 'grossIncome',
       label: 'Gross income',

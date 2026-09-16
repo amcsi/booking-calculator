@@ -3,6 +3,11 @@
 **Date:** 2026-09-16
 **Status:** Approved, ready for implementation planning
 
+**2026-09-16 (follow-up):** the "unfilled days" field was replaced with a
+direct "nights booked" field, and the "30-day month" framing was dropped
+from the UI. This document reflects that change; the localStorage migration
+that keeps old data readable is described under State and persistence.
+
 ## Purpose
 
 A single-screen web app that answers one question: given a nightly rate on
@@ -29,7 +34,7 @@ euro, any server or network call.
 | Field | Unit | Default |
 |---|---|---|
 | Nightly rate | € | *(empty)* |
-| Unfilled days this month | nights | *(empty)* |
+| Number of nights booked in month | nights | *(empty)* |
 | Number of stays | count | *(empty)* |
 | Platform commission | % | `15` |
 | Tax rate | % | `19` |
@@ -38,23 +43,25 @@ euro, any server or network call.
 
 All seven are held as raw strings. A blank or unparseable value becomes `0`.
 
-`DAYS_IN_MONTH = 30` is a named constant in `calc.ts`. Months are always
-treated as 30 days; no calendar logic exists.
+Nights booked is a direct count, not derived from a calendar month — the app
+makes no assumption about how many days are in the month at all. (An earlier
+version asked for *unfilled* days instead and derived filled nights as 30
+minus that; localStorage data written under that version is migrated on
+load — see State and persistence.)
 
 ### Derivation
 
 | # | Step | Formula |
 |---|---|---|
-| 1 | Filled nights | `DAYS_IN_MONTH − unfilledDays`, clamped to 0–30 |
-| 2 | Gross income | `nightlyRate × filledNights` |
-| 3 | Commission | `gross × commissionPct / 100` |
-| 4 | Taxable base | `gross − commission` |
-| 5 | Tax | `taxableBase × taxPct / 100` |
-| 6 | Per-stay costs | `stays × fixedCostPerStay` |
-| 7 | Monthly fixed costs | *(entered directly)* |
-| 8 | Total costs | `commission + tax + perStayCosts + monthlyCosts` |
-| 9 | Net kept | `gross − totalCosts` |
-| 10 | Net per filled night | `net / filledNights`, or `null` when `filledNights === 0` |
+| 1 | Gross income | `nightlyRate × filledNights` |
+| 2 | Commission | `gross × commissionPct / 100` |
+| 3 | Taxable base | `gross − commission` |
+| 4 | Tax | `taxableBase × taxPct / 100` |
+| 5 | Per-stay costs | `stays × fixedCostPerStay` |
+| 6 | Monthly fixed costs | *(entered directly)* |
+| 7 | Total costs | `commission + tax + perStayCosts + monthlyCosts` |
+| 8 | Net kept | `gross − totalCosts` |
+| 9 | Net per filled night | `net / filledNights`, or `null` when `filledNights === 0` |
 
 ### Rules this encodes
 
@@ -79,11 +86,10 @@ treated as 30 days; no calendar logic exists.
 
 ### Worked example
 
-Rate €100, 6 unfilled days, 8 stays, 15% commission, 19% tax, €75 per stay,
+Rate €100, 24 nights booked, 8 stays, 15% commission, 19% tax, €75 per stay,
 €400 monthly:
 
 ```
-30 − 6                    =   24 filled nights
 €100 × 24                 = €2,400.00  gross income
 €2,400.00 × 15%           =   €360.00  commission
 €2,400.00 − €360.00       = €2,040.00  taxable base
@@ -114,7 +120,7 @@ Approach: one state object, one persistence hook, one pure calculation module.
 
 | File | Owns | Depends on |
 |---|---|---|
-| `src/calc.ts` | `Inputs` / `Result` types, `DAYS_IN_MONTH`, `parse()`, `calculate()` | nothing |
+| `src/calc.ts` | `Inputs` / `Result` types, `parse()`, `calculate()` | nothing |
 | `src/calc.test.ts` | the case table | `calc.ts` |
 | `src/format.ts` | `formatEuro()`, `formatNumber()` via `Intl.NumberFormat` | nothing |
 | `src/usePersistedState.ts` | localStorage-backed state hook | React |
@@ -148,8 +154,15 @@ falls back to defaults rather than failing to render.
 Restore is a shallow merge over the defaults — `{...DEFAULTS, ...parsed}` —
 keeping only values that are actually strings. A blob written before a field
 existed still loads, with the new field taking its default rather than arriving
-as `undefined` and breaking a controlled input. If the shape ever changes
-incompatibly, the `:v1` suffix is bumped instead of writing a migration.
+as `undefined` and breaking a controlled input. In general, if the shape ever
+changes incompatibly, the `:v1` suffix is bumped instead of writing a
+migration.
+
+The one exception is the `unfilledDays` → `filledNights` rename: a stored
+`unfilledDays` value, with no `filledNights` value already present, is
+converted to `30 − unfilledDays` (clamped at 0) before the merge runs, rather
+than being dropped as an unknown key. A blob that already carries
+`filledNights` is left alone.
 
 A Reset button restores the defaults above.
 
@@ -159,19 +172,19 @@ Single column, max-width ~640px, centred. Three cards: Inputs, Result, and
 "How this was calculated". No routing, no tabs, no button other than Reset.
 
 ```
-┌─ Inputs ──────────────────────────────┐
-│ Nightly rate              [   100 ] € │
-│ Unfilled days this month  [     6 ] n │
-│ Number of stays           [     8 ] × │
-│ Platform commission       [    15 ] % │
-│ Tax rate                  [    19 ] % │
-│ Fixed cost per stay       [    75 ] € │
-│ Monthly fixed costs       [   400 ] € │
-│                               [Reset] │
-└───────────────────────────────────────┘
+┌─ Inputs ───────────────────────────────────────┐
+│ Nightly rate                     [ 100 ] €     │
+│ Number of nights booked in month [  24 ] nights│
+│ Number of stays                  [   8 ] ×     │
+│ Platform commission              [  15 ] %     │
+│ Tax rate                         [  19 ] %     │
+│ Fixed cost per stay              [  75 ] €     │
+│ Monthly fixed costs              [ 400 ] €     │
+│                                        [Reset] │
+└────────────────────────────────────────────────┘
 ┌─ Result ──────────────────────────────┐
 │           € 652.40                    │
-│           net kept in a 30-day month  │
+│           net kept this month         │
 │           €27.18 per filled night     │
 │                                       │
 │   … the ledger, as above …            │
@@ -188,8 +201,8 @@ the layout, and browsers report `""` for input they consider invalid, hiding
 what was actually typed. `inputMode` still raises the numeric keypad on mobile.
 
 The three cards split the derivation between them: the trail card prints steps
-1–7, where each cost comes from; the ledger in the Result card prints steps 8
-and 9; and the hero prints step 9 again with step 10 beneath it.
+1–6, where each cost comes from; the ledger in the Result card prints steps 7
+and 8; and the hero prints step 8 again with step 9 beneath it.
 
 The hero number carries the sign: positive green, negative red and prefixed
 `−`. The per-night figure renders `—` when filled nights is zero.
@@ -215,10 +228,10 @@ and report it rather than proceeding on Vite 7.
 - **The tax rule:** raising per-stay and monthly costs leaves the tax figure
   unchanged. This is the one invariant stated explicitly by the user, and the
   one a future refactor would most plausibly break.
-- Zero occupancy (30 unfilled): gross 0, percentage costs 0, net equals minus
-  the monthly costs.
+- Zero occupancy (0 nights booked): gross 0, percentage costs 0, net equals
+  minus the monthly costs.
 - Negative net: the sign survives.
-- Clamping: 45 unfilled days yields 0 filled nights, not −15.
+- A negative nights-booked value floors at 0, like any other amount.
 - Empty and garbage input: `""` and `"abc"` both parse to 0; no `NaN` appears
   anywhere in the result.
 - Zero filled nights: per-night figure is `null`, not `Infinity`.

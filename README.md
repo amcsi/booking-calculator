@@ -22,15 +22,15 @@ pnpm lint     # oxlint
 | Field | Unit | Default |
 |---|---|---|
 | Nightly rate | € | *(empty)* |
-| Unfilled days this month | nights | *(empty)* |
+| Number of nights booked in month | nights | *(empty)* |
 | Number of stays | count | *(empty)* |
 | Platform commission | % | `15` |
 | Tax rate | % | `19` |
 | Fixed cost per stay | € | `75` |
 | Monthly fixed costs | € | *(empty)* |
 
-A month is always treated as 30 days (`DAYS_IN_MONTH` in `src/calc.ts`); there
-is no calendar logic.
+Nights booked is entered directly; the app makes no assumption about how
+many days are in the month.
 
 ## Calculation
 
@@ -53,3 +53,9 @@ more separators, all but the last are grouping in both cases.
 
 Input values are saved to `localStorage` under the key
 `booking-calculator:inputs:v1` and restored on reload.
+
+An earlier version of this app asked for *unfilled* days instead of nights
+booked, and derived the nights-booked figure as 30 minus that value. Data
+saved under that version is migrated automatically: a stored `unfilledDays`
+value becomes `30 − unfilledDays` (clamped at 0) the first time it loads
+under the current version.

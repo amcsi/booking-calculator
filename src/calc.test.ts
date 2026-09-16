@@ -3,7 +3,7 @@ import { calculate, parse, type Inputs, type Line } from './calc'
 
 const base: Inputs = {
   nightlyRate: '100',
-  unfilledDays: '6',
+  filledNights: '24',
   stays: '8',
   commissionPct: '15',
   taxPct: '19',
@@ -13,7 +13,7 @@ const base: Inputs = {
 
 const empty: Inputs = {
   nightlyRate: '',
-  unfilledDays: '',
+  filledNights: '',
   stays: '',
   commissionPct: '',
   taxPct: '',
@@ -105,7 +105,7 @@ describe('calculate', () => {
   })
 
   it('charges only the monthly cost when nothing is booked', () => {
-    const r = calculate({ ...base, unfilledDays: '30', stays: '0' })
+    const r = calculate({ ...base, filledNights: '0', stays: '0' })
     expect(r.filledNights).toBe(0)
     expect(r.grossIncome).toBe(0)
     expect(r.commission).toBe(0)
@@ -115,13 +115,13 @@ describe('calculate', () => {
   })
 
   it('preserves a negative net', () => {
-    const r = calculate({ ...base, nightlyRate: '10', unfilledDays: '0' })
+    const r = calculate({ ...base, nightlyRate: '10', filledNights: '30' })
     expect(r.net).toBeLessThan(0)
     expect(r.net).toBeCloseTo(-793.45, 10)
   })
 
-  it('clamps filled nights at zero when unfilled days exceed the month', () => {
-    const r = calculate({ ...base, unfilledDays: '45' })
+  it('treats negative nights as zero, like any other amount', () => {
+    const r = calculate({ ...base, filledNights: '-5' })
     expect(r.filledNights).toBe(0)
   })
 
@@ -130,13 +130,13 @@ describe('calculate', () => {
     expect(r.grossIncome).toBe(0)
     expect(r.totalCosts).toBe(0)
     expect(r.net).toBe(0)
-    expect(r.filledNights).toBe(30)
+    expect(r.filledNights).toBe(0)
   })
 
   it('produces no NaN anywhere for garbage input', () => {
     const r = calculate({
       nightlyRate: 'abc',
-      unfilledDays: 'xyz',
+      filledNights: 'xyz',
       stays: '??',
       commissionPct: 'nope',
       taxPct: '',
@@ -151,22 +151,22 @@ describe('calculate', () => {
   })
 
   it('reports no per-night figure when no nights are filled', () => {
-    const r = calculate({ ...base, unfilledDays: '30' })
+    const r = calculate({ ...base, filledNights: '0' })
     expect(r.netPerFilledNight).toBeNull()
   })
 
   it('does not round intermediate values', () => {
-    const r = calculate({ ...base, nightlyRate: '33.33', unfilledDays: '0' })
+    const r = calculate({ ...base, nightlyRate: '33.33', filledNights: '30' })
     expect(r.grossIncome).toBeCloseTo(999.9, 10)
     expect(r.commission).toBeCloseTo(149.985, 10)
     expect(r.taxableBase).toBeCloseTo(849.915, 10)
     expect(r.tax).toBeCloseTo(161.48385, 10)
   })
 
-  it('exposes seven trail steps and four cost lines', () => {
+  it('exposes six trail steps and four cost lines', () => {
     const r = calculate(base)
     expect(r.trail.map((l) => l.id)).toEqual([
-      'filledNights', 'grossIncome', 'commission', 'taxableBase',
+      'grossIncome', 'commission', 'taxableBase',
       'tax', 'perStayCosts', 'monthlyFixedCosts',
     ])
     expect(r.costLines.map((l) => l.id)).toEqual([
@@ -190,7 +190,6 @@ describe('calculate', () => {
     const r = calculate(base)
     const amountOf = (id: string) =>
       r.trail.find((line) => line.id === id)?.amount.value
-    expect(amountOf('filledNights')).toBe(r.filledNights)
     expect(amountOf('grossIncome')).toBe(r.grossIncome)
     expect(amountOf('commission')).toBe(r.commission)
     expect(amountOf('taxableBase')).toBe(r.taxableBase)
@@ -226,7 +225,6 @@ describe('calculate', () => {
       if (!line) throw new Error(`no line with id ${id}`)
       return line.operands.map((operand) => operand.value)
     }
-    expect(operandsOf(r.trail, 'filledNights')).toEqual([30, 6])
     expect(operandsOf(r.trail, 'grossIncome')).toEqual([100, 24])
     expect(operandsOf(r.trail, 'commission')).toEqual([2400, 15])
     expect(operandsOf(r.trail, 'taxableBase')).toEqual([2400, 360])
