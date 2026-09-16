@@ -46,14 +46,24 @@ describe('parse', () => {
     expect(parse('33.5')).toBe(33.5)
   })
 
-  it('reads a separator with three trailing digits as a thousands separator', () => {
-    expect(parse('2,400')).toBe(2400)
-    expect(parse('2.400')).toBe(2400)
+  it('treats a lone separator as a decimal point', () => {
+    expect(parse('2,400')).toBe(2.4)
+    expect(parse('2.400')).toBe(2.4)
   })
 
-  it('handles both thousands and decimal separators together', () => {
+  it('keeps three decimal places, as percentages need', () => {
+    expect(parse('19.375')).toBe(19.375)
+    expect(parse('8,375')).toBe(8.375)
+  })
+
+  it('reads all but the last of several separators as grouping', () => {
     expect(parse('1.234,56')).toBe(1234.56)
     expect(parse('1,234.56')).toBe(1234.56)
+    expect(parse('1,234,567')).toBe(1234567)
+  })
+
+  it('never returns negative zero', () => {
+    expect(Object.is(parse('-0'), 0)).toBe(true)
   })
 
   it('tolerates a trailing separator mid-typing', () => {
@@ -166,5 +176,24 @@ describe('calculate', () => {
     const r = calculate(base)
     const sum = r.costLines.reduce((acc, line) => acc + line.amount.value, 0)
     expect(sum).toBeCloseTo(r.totalCosts, 10)
+  })
+
+  it('applies a percentage above 100 without clamping', () => {
+    const r = calculate({ ...base, taxPct: '120' })
+    expect(r.tax).toBeCloseTo(r.taxableBase * 1.2, 10)
+    expect(r.net).toBeLessThan(0)
+  })
+
+  it('wires each trail amount to the figure it reports', () => {
+    const r = calculate(base)
+    const amountOf = (id: string) =>
+      r.trail.find((line) => line.id === id)?.amount.value
+    expect(amountOf('filledNights')).toBe(r.filledNights)
+    expect(amountOf('grossIncome')).toBe(r.grossIncome)
+    expect(amountOf('commission')).toBe(r.commission)
+    expect(amountOf('taxableBase')).toBe(r.taxableBase)
+    expect(amountOf('tax')).toBe(r.tax)
+    expect(amountOf('perStayCosts')).toBe(r.perStayCosts)
+    expect(amountOf('monthlyFixedCosts')).toBe(r.monthlyFixedCosts)
   })
 })

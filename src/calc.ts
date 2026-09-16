@@ -42,29 +42,31 @@ export interface Result {
 }
 
 /**
- * Reads a typed number. Both "." and "," count as the decimal separator, but
- * only when one or two digits follow; any other separator is a thousands
- * separator. So "33,33" is 33.33 while "2,400" is 2400, and a plain
- * comma-to-period swap cannot silently turn 2,400 into 2.4.
- * Blank, unparseable and negative input all read as 0.
+ * Reads a typed number. Both "." and "," are accepted as the decimal
+ * separator: a lone separator is ALWAYS a decimal point, so "33,33" and
+ * "19.375" both read as written. With two or more separators, all but the
+ * last are grouping and the last is a decimal point only when one or two
+ * digits follow it, so "1.234,56" and "1,234.56" are both 1234.56 and
+ * "1,234,567" is 1234567.
+ * Blank, unparseable, negative and negative-zero input all read as 0.
  */
 export function parse(raw: string): number {
   const cleaned = raw.replace(/\s/g, '')
   const lastSeparator = Math.max(cleaned.lastIndexOf('.'), cleaned.lastIndexOf(','))
+  const separatorCount = (cleaned.match(/[.,]/g) ?? []).length
 
   let normalised: string
   if (lastSeparator === -1) {
     normalised = cleaned
   } else {
-    const trailingDigits = cleaned.length - lastSeparator - 1
-    const isDecimalPoint = trailingDigits === 1 || trailingDigits === 2
-    const head = cleaned.slice(0, lastSeparator).replace(/[.,]/g, '')
     const tail = cleaned.slice(lastSeparator + 1)
+    const isDecimalPoint = separatorCount === 1 || /^\d{1,2}$/.test(tail)
+    const head = cleaned.slice(0, lastSeparator).replace(/[.,]/g, '')
     normalised = isDecimalPoint ? `${head}.${tail}` : head + tail
   }
 
   const n = Number.parseFloat(normalised)
-  if (!Number.isFinite(n) || n < 0) return 0
+  if (!Number.isFinite(n) || n <= 0) return 0
   return n
 }
 
